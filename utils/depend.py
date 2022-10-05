@@ -15,17 +15,17 @@ class ChromeBrowser:
         # mobileEmulation = {"deviceName": "iPhone XR"}
         # chrome_options.add_experimental_option("mobileEmulation", mobileEmulation)
 
-        # 隐身访问
-        # chrome_options.add_argument('--incognito')
-
-        # 不加载图片, 提升速度
-        # chrome_options.add_argument('--blink-settings=imagesEnabled=false')
-        # 改进：如果存在cookie，则说明无需验证登录，则可以设置为不加载图片以提升速度
         if checkCookie(jobName):
-            chrome_options.add_argument('--blink-settings=imagesEnabled=false')
-            chrome_options.add_argument("headless")
+            print("存在cookie")
+            # 隐身访问
+            # chrome_options.add_argument('--incognito')
+            # 不加载图片, 提升速度
+            # chrome_options.add_argument('--blink-settings=imagesEnabled=false')
+            # 不打开浏览器窗口
+            # chrome_options.add_argument("headless")
+            pass
 
-        # 不打开浏览器窗口
+
         # chrome_options.add_argument("headless")
         # 隐藏正受到自动测试软件的控制。
         chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
@@ -37,3 +37,5 @@ class ChromeBrowser:
         # 设置窗口大小和位置
         self.chrome.set_window_size(390,884)
         self.chrome.set_window_position(0,0)
+
+

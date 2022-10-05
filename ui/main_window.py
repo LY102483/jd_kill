@@ -1,5 +1,6 @@
 import datetime
 
+import requests
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 
@@ -7,7 +8,6 @@ import time
 from selenium.webdriver.common.by import By
 
 import utils.depend
-# from utils.depend import chrome
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie
 
 # 主窗口
@@ -203,12 +203,12 @@ class Main_Window(QMainWindow):
     # 京东登录方法
     def loginJd(self):
         chrome=utils.depend.ChromeBrowser().chrome
+        chrome.get("https://m.jd.com")
         # 判断是否有本地的cookie
         cookieIsExists = checkCookie(jobName)
         #假如没有本地cookie
         if not cookieIsExists:
             self.printf("请在打开的浏览器窗口中进行登录")
-            chrome.get("https://m.jd.com")
             time.sleep(5)  # 进入网页后有京东开屏广告，等待自动关闭
             try:
                 chrome.find_element(By.ID, 'msShortcutLogin').click()
@@ -219,20 +219,21 @@ class Main_Window(QMainWindow):
                     # 保存登录的cookie
                     saveCookie(jobName, chrome.get_cookies())
                     chrome.close()
+                    chrome.quit()
                 else:
                     self.printf("登陆失败，请重试")
             except:
                 self.printf("发生无法避免的错误，请联系开发人员")
         # 假如有本地cookie
         else:
-            chrome = utils.depend.ChromeBrowser().chrome
-            chrome.get("https://m.jd.com")
+
             cookieList = readCookie(jobName)
+            chrome.get("https://m.jd.com")
             # 将本地cookie加载到浏览器
             for cookie in cookieList:
                 chrome.add_cookie(cookie)
-            print("cookie添加完成")
-            time.sleep(3)
+            time.sleep(1)
             chrome.refresh()
-            # 保存最新的cookie
-            saveCookie(jobName, chrome.get_cookies())
+            self.printf("检测到本地cookie，开始使用本地cookie进行登录")
+            time.sleep(30)
+
