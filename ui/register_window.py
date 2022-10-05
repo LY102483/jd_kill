@@ -2,6 +2,7 @@ from PyQt5 import QtCore, QtGui, QtWidgets, Qt
 
 from jd_utils.register_util import register
 import pymysql
+import ui.main_window
 
 class Register_Window(object):
     def setupUi(self, register_window):
@@ -65,8 +66,19 @@ class Register_Window(object):
         sql = " select * from account where MachineCode ='"+ self.MachineCode.text()+"' limit 1"
         cursor.execute(sql)
         data = cursor.fetchone()
+        db.close()
         if data!=None:
-            print("校验通过")
+            print("校验成功")
+            self.openMain()
         else:
-            db.close()
+            print("校验失败")
             self.error.setText("注册失败，请邮件联系：1024839103ly@gmail.com")
+            self.error.show()
+
+
+
+    #登录成功打开新窗口
+    def openMain(self):
+        self.main_window=ui.main_window.Main_Window()
+        self.main_window.show()
+
