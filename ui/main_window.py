@@ -1,7 +1,14 @@
+import datetime
+
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 
-from PyQt5.QtWidgets import QMainWindow
+import time
+from selenium.webdriver.common.by import By
+from utils.depend import chrome
+from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie
 
+# 主窗口
 class Main_Window(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -140,6 +147,9 @@ class Main_Window(QMainWindow):
         self.infoPrint.setObjectName("infoPrint")
         MainWindow.setCentralWidget(self.centralwidget)
 
+        # 京东登录按钮绑定
+        self.loginButton.clicked.connect(self.loginJd)
+
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
 
@@ -166,13 +176,48 @@ class Main_Window(QMainWindow):
         self.payPassword.setPlaceholderText(_translate("MainWindow", "可为空"))
         self.label_10.setText(_translate("MainWindow", "购买数量："))
 
-
-    def printf(self,mypstr):
+    # 控制台打印
+    def printf(self, mypstr):
         '''
         自定义类print函数,借用c语言 printf
         Mypstr：是待显示的字符串
         '''
-        self.infoBrowser.append(mypstr)  #在指定的区域显示提示信息
-        self.cursor=self.infoBrowser.textCursor()
-        self.infoBrowser.moveCursor(self.cursor.End) #光标移到最后，这样就会自动显示出来
-        QtWidgets.QApplication.processEvents() #一定加上这个功能，不然有卡顿
+        localTime = str(datetime.datetime.today())
+        self.infoPrint.append('[' + localTime + '] ' + mypstr)  # 在指定的区域显示提示信息
+        self.cursor = self.infoPrint.textCursor()
+        self.infoPrint.moveCursor(self.cursor.End)  # 光标移到最后，这样就会自动显示出来
+        QtWidgets.QApplication.processEvents()  # 一定加上这个功能，不然有卡顿
+
+    # 登录成功确认框
+    def closeEvent(self):
+        reply = QMessageBox.question(self, 'Login Message', '是否已手动完成了登陆?',
+                                     QMessageBox.No | QMessageBox.Yes)
+
+        if reply == QMessageBox.Yes:
+            return True
+        else:
+            chrome.close()
+            return False
+
+    # 京东登录方法
+    def loginJd(self):
+        # 判断是否有本地的cookie
+        cookieIsExists = checkCookie(jobName)
+        if not cookieIsExists:
+            self.printf("请在打开的浏览器窗口中进行登录")
+            # chrome.get("https://www.jd.com")
+            # time.sleep(5)  # 进入网页后有京东开屏广告，等待自动关闭
+            # try:
+            #     chrome.find_element(By.ID, 'msShortcutLogin').click()
+            # except:
+            #     self.printf("发生无法避免的错误，请联系开发人员")
+            #     chrome.close()
+            # 是否完成登陆操作确认
+            isLogin=self.closeEvent()
+            if isLogin:
+                self.printf("登陆成功")
+                # 保存登录的cookie
+                saveCookie(jobName, chrome.get_cookies())
+
+            else:
+                self.printf("登陆失败，请自行重启程序重启程序")

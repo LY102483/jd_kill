@@ -1,6 +1,8 @@
 from PyQt5 import QtCore, QtGui, QtWidgets, Qt
 
-from jd_utils.register_util import register
+#Mac开发临时关闭
+# from jd_utils.register_util import register
+
 import pymysql
 import ui.main_window
 
@@ -55,7 +57,9 @@ class Register_Window(object):
         register_window.setWindowTitle(_translate("register_window", "京东抢购软件-注册激活(Email：1024839103ly@gmail.com)"))
         self.id.setText(_translate("register_window", "注册码:"))
         self.registerButton.setText(_translate("register_window", "注册"))
-        self.MachineCode.setText(register().getCombinNumber())
+
+        #Mac开发临时关闭
+        # self.MachineCode.setText(register().getCombinNumber())
 
 
 
@@ -67,6 +71,9 @@ class Register_Window(object):
         cursor.execute(sql)
         data = cursor.fetchone()
         db.close()
+        '''
+        Mac开发临时关闭
+        
         if data!=None:
             print("校验成功")
             self.openMain()
@@ -74,8 +81,8 @@ class Register_Window(object):
             print("校验失败")
             self.error.setText("注册失败，请邮件联系：1024839103ly@gmail.com")
             self.error.show()
-
-
+        '''
+        self.openMain()
 
     #登录成功打开新窗口
     def openMain(self):

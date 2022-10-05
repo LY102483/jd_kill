@@ -1,4 +1,5 @@
 import sys
+import time
 
 from PyQt5 import QtCore, QtGui, QtWidgets
 
@@ -17,4 +18,5 @@ if __name__ == '__main__':
     register_window = PyQT_Register()
     register_window.show()
     sys.exit(app.exec_())
+
 
