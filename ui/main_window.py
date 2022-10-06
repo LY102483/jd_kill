@@ -1,6 +1,8 @@
 import datetime
+import json
 
 import requests
+import selenium
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 
@@ -8,7 +10,8 @@ import time
 from selenium.webdriver.common.by import By
 
 import utils.depend
-from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie
+from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
+
 
 # 主窗口
 class Main_Window(QMainWindow):
@@ -151,6 +154,10 @@ class Main_Window(QMainWindow):
 
         # 京东登录按钮绑定
         self.loginButton.clicked.connect(self.loginJd)
+        # 有货抢购按钮绑定
+        self.goodsOKButton.clicked.connect(self.goodsOkBuy)
+        #定时抢购按钮绑定
+        self.BuyOnTime.clicked.connect(self.buyOnTime)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -169,7 +176,7 @@ class Main_Window(QMainWindow):
         self.areaId.setPlaceholderText(_translate("MainWindow", "使用有货下单时不能为空"))
         self.label_5.setText(_translate("MainWindow", "收货地址："))
         self.label_6.setText(_translate("MainWindow", "抢购时间："))
-        self.buyTime.setDisplayFormat(_translate("MainWindow", "yyyy/M/d HH:mm:ss"))
+        self.buyTime.setDisplayFormat(_translate("MainWindow", "yyyy-MM-dd HH:mm:ss"))
         self.refreshAddressButton.setText(_translate("MainWindow", "刷新地址"))
         self.BuyOnTime.setText(_translate("MainWindow", "定时抢购"))
         self.goodsOKButton.setText(_translate("MainWindow", "有货下单"))
@@ -202,38 +209,149 @@ class Main_Window(QMainWindow):
 
     # 京东登录方法
     def loginJd(self):
-        chrome=utils.depend.ChromeBrowser().chrome
-        chrome.get("https://m.jd.com")
-        # 判断是否有本地的cookie
-        cookieIsExists = checkCookie(jobName)
-        #假如没有本地cookie
-        if not cookieIsExists:
-            self.printf("请在打开的浏览器窗口中进行登录")
-            time.sleep(5)  # 进入网页后有京东开屏广告，等待自动关闭
-            try:
-                chrome.find_element(By.ID, 'msShortcutLogin').click()
-                # 是否完成登陆操作确认
-                isLogin = self.closeEvent()
-                if isLogin:
-                    self.printf("登陆成功")
-                    # 保存登录的cookie
-                    saveCookie(jobName, chrome.get_cookies())
-                    chrome.close()
-                    chrome.quit()
-                else:
-                    self.printf("登陆失败，请重试")
-            except:
-                self.printf("发生无法避免的错误，请联系开发人员")
-        # 假如有本地cookie
-        else:
-
-            cookieList = readCookie(jobName)
+        try:
+            chrome = utils.depend.ChromeBrowser().chrome
             chrome.get("https://m.jd.com")
-            # 将本地cookie加载到浏览器
-            for cookie in cookieList:
-                chrome.add_cookie(cookie)
-            time.sleep(1)
-            chrome.refresh()
-            self.printf("检测到本地cookie，开始使用本地cookie进行登录")
-            time.sleep(30)
+            # 判断是否有本地的cookie
+            cookieIsExists = checkCookie(jobName)
+            # 存放cookie中的数据用于登录检查
+            jxsid = ''
+            # 假如没有本地cookie
+            if not cookieIsExists:
+                self.printf("请在打开的浏览器窗口中进行登录")
+                time.sleep(5)  # 进入网页后有京东开屏广告，等待自动关闭
+                try:
+                    chrome.find_element(By.ID, 'msShortcutLogin').click()
+                    # 是否完成登陆操作确认
+                    isLogin = self.closeEvent()
+                    if isLogin:
+                        self.printf("手动登陆完成，开始检查cookie是否有效！")
+                        self.checkCookies(chrome, jxsid)
+                        chrome.close()
+                        chrome.quit()
+                    else:
+                        self.printf("登陆失败，请重试")
+                except:
+                    self.printf("发生无法避免的错误，请联系开发人员")
+            # 假如有本地cookie
+            else:
+                self.printf("检测到本地cookie，开始使用本地cookie进行登录")
+                cookieList = readCookie(jobName)
+                chrome.get("https://m.jd.com")
+                # 将本地cookie加载到浏览器
+                try:
+                    for cookie in cookieList:
+                        chrome.add_cookie(cookie)
+                        if (cookie['name'] == 'jxsid'):
+                            jxsid = cookie['value']
+                except :
+                    self.printf("cookie加载出现问题，登陆可能失效,正在进行检查")
+                time.sleep(1)
+                chrome.refresh()
+                self.checkCookies(chrome,jxsid)
+                chrome.close()
+                chrome.quit()
+        except selenium.common.exceptions.WebDriverException:
+            self.printf("无法连接到京东服务器")
+        except Exception as errorInfo:
+            self.printf("发生未知异常，请联系开发者，异常原因：" + str(errorInfo))
 
+    # 京东的注销方法
+    def exitJd(self):
+        deleteCookie(jobName)
+        self.printf("已退出京东登陆并删除本地cookie")
+        self.loginButton.setText("登陆")
+        self.loginButton.setStyleSheet("background-color: rgb(81, 142, 255);\n"
+                                       "color: rgb(255, 255, 255);")
+        self.loginButton.setObjectName("loginButton")
+        self.loginButton.clicked.disconnect(self.exitJd)
+        self.loginButton.clicked.connect(self.loginJd)
+
+    # 检查cookie有效性
+    def checkCookies(self,chrome,jxsid):
+        chrome.get(
+            'https://trade.m.jd.com/order/orderlist_jdm.shtml?sceneval=2&jxsid=' + jxsid + '&orderType=all&ptag=7155.1.11')
+        if '我的订单' in chrome.page_source:
+            self.printf("cookie有效，登陆成功")
+            self.loginButton.setText("注销")
+            self.loginButton.setStyleSheet("background-color: rgb(239,54,63);\n"
+                                           "color:white;")
+            self.loginButton.setObjectName("exitButton")
+            self.loginButton.clicked.disconnect(self.loginJd)
+            self.loginButton.clicked.connect(self.exitJd)
+            saveCookie(jobName, chrome.get_cookies())
+        else:
+            self.printf("cookie失效，请重新登陆")
+            self.exitJd
+
+    # 检查是否拥有库存
+    def checkStock(self, sku, areaId):
+        # 请求地址：https://item-soa.jd.com/getWareBusiness?skuId=100012043978&area=22_2022_2028_43722
+        getUrl = 'https://item-soa.jd.com/getWareBusiness?skuId=' + sku + '&area=' + areaId
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
+        }
+        try:
+            resp_json = requests.post(url=getUrl, headers=headers, timeout=10).text
+            resp_json = json.loads(resp_json)
+            stock_info = resp_json.get('stockInfo')
+            stock_state = stock_info.get('stockState')  # 商品库存状态：33 -- 现货  0,34 -- 无货  36 -- 采购中  40 -- 可配货
+            if stock_state in (33, 40):
+                return 1
+            else:
+                return 0
+        except requests.exceptions.Timeout:
+            # 查询库存超时
+            return 408
+        except requests.exceptions.RequestException as request_exception:
+            # 网络异常
+            return 404
+        except json.decoder.JSONDecodeError:
+            # 请求参数不合法
+            return 417
+        except Exception as errorInfo:
+            self.printf("发生未知异常，请联系开发者，异常原因：" + str(errorInfo))
+            return 500
+
+    # 库存抢购模式
+    def goodsOkBuy(self):
+        self.printf("进入有货下单模式")
+        sku = self.sku.text()
+        areaId = self.areaId.text()
+        stockState = -1  # 用于判断是否继续进行库存监控
+        if (sku == "") or (areaId == ""):
+            self.printf("商品编号和地区代码不能为空")
+        else:
+            self.printf('商品sku：' + sku)
+            self.printf('监控地区代码：' + areaId)
+            while (True):
+                stockState = self.checkStock(sku, areaId)
+                if stockState == 1:
+                    self.printf("检测到库存")
+                elif stockState == 0:
+                    self.printf("无库存")
+                elif stockState == 408:
+                    self.printf("请求超时")
+                elif stockState == 404:
+                    self.printf("网络异常")
+                elif stockState == 417:
+                    self.printf("商品编号或地区代码不正确")
+                elif stockState == 500:
+                    break
+
+
+    #定时抢购
+    def buyOnTime(self):
+        # 获取设置的抢购时间并转换为时间戳
+        buyTime=self.buyTime.text()
+        # "yyyy-MM-dd HH:mm:ss"
+        buyTime=time.mktime(time.strptime(buyTime, '%Y-%m-%d %H:%M:%S'))
+        buyTime=int(round(buyTime * 1000))#毫秒级时间戳
+
+        while True:
+            localTime = int(round(time.time() * 1000))
+            if localTime >= buyTime:
+                self.printf("到达抢购时间，开始执行")
+                break
+            else:
+                time.sleep(0.05)

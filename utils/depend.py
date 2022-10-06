@@ -16,14 +16,12 @@ class ChromeBrowser:
         # chrome_options.add_experimental_option("mobileEmulation", mobileEmulation)
 
         if checkCookie(jobName):
-            print("存在cookie")
             # 隐身访问
-            # chrome_options.add_argument('--incognito')
+            chrome_options.add_argument('--incognito')
             # 不加载图片, 提升速度
-            # chrome_options.add_argument('--blink-settings=imagesEnabled=false')
+            chrome_options.add_argument('--blink-settings=imagesEnabled=false')
             # 不打开浏览器窗口
-            # chrome_options.add_argument("headless")
-            pass
+            chrome_options.add_argument("headless")
 
 
         # chrome_options.add_argument("headless")

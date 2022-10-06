@@ -9,8 +9,7 @@ class jd_dependent(object):
     # 库存查询的方法
     def selectNum(self):
         #请求地址：https://item-soa.jd.com/getWareBusiness?skuId=100012043978&area=22_2022_2028_43722
-        # 关键参数：stockDesc：可配货、有货
-        # 需要匹配关键字 预约
+
 
         pass
     def loginJd(self):

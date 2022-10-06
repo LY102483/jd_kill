@@ -65,25 +65,27 @@ class Register_Window(object):
 
     #数据库校验
     def login(self):
-        db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill', charset='utf8')
-        cursor = db.cursor()
-        sql = " select * from account where MachineCode ='"+ self.MachineCode.text()+"' limit 1"
-        cursor.execute(sql)
-        data = cursor.fetchone()
-        db.close()
-        '''
-        Mac开发临时关闭
-        
-        if data!=None:
-            print("校验成功")
-            self.openMain()
-        else:
-            print("校验失败")
-            self.error.setText("注册失败，请邮件联系：1024839103ly@gmail.com")
-            self.error.show()
-        '''
-        self.openMain()
-
+        try:
+            db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill', charset='utf8')
+            cursor = db.cursor()
+            sql = " select * from account where MachineCode ='"+ self.MachineCode.text()+"' limit 1"
+            cursor.execute(sql)
+            data = cursor.fetchone()
+            db.close()
+            '''
+            Mac开发临时关闭
+            
+            if data!=None:
+                print("校验成功")
+                self.openMain()
+            else:
+                print("校验失败")
+                self.error.setText("注册失败，请邮件联系：1024839103ly@gmail.com")
+                self.error.show()
+            '''
+            self.openMain() #Mac开发临时关闭
+        except Exception as e:
+            self.error.setText("网络发生错误，请检查网络。")
     #登录成功打开新窗口
     def openMain(self):
         self.main_window=ui.main_window.Main_Window()

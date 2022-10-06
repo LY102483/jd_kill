@@ -40,3 +40,6 @@ def saveCookie(name, cookie):
     cookie_file.write(jsonCookies)
     # 关闭文件
     cookie_file.close()
+
+def deleteCookie(name):
+    os.remove(cookiesPath + name + ".json")
