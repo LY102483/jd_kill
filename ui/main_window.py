@@ -164,7 +164,7 @@ class Main_Window(QMainWindow):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "京东抢购软件         Email：1024839103ly@gmail.com"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "京东抢购软件         Email：jdkill2022@outlook.com"))
         self.JdTime.setText(_translate("MainWindow", "获取失败"))
         self.loginButton.setText(_translate("MainWindow", "登录"))
         self.label_3.setText(_translate("MainWindow", "京东时间："))
@@ -258,6 +258,7 @@ class Main_Window(QMainWindow):
 
     # 京东的注销方法
     def exitJd(self):
+        print("进入了京东的注销方法")
         deleteCookie(jobName)
         self.printf("已退出京东登陆并删除本地cookie")
         self.loginButton.setText("登陆")
@@ -267,11 +268,25 @@ class Main_Window(QMainWindow):
         self.loginButton.clicked.disconnect(self.exitJd)
         self.loginButton.clicked.connect(self.loginJd)
 
+    #获取用户名
+    def getUsername(self,chrome):
+        chrome.get('https://home.m.jd.com/myJd/newhome.action')
+        print(chrome.page_source)
+        username=chrome.find_element(By.ID,"mCommonFooter]").text
+        print(username)
+        # url:  https://home.m.jd.com/myJd/newhome.action
+        # xpath://*[@id="mCommonFooter"]/ul[1]/li[1]/a     .text
+        # xpath:   //*[@id="myHeader"]/div[1]/div[1]/div[2]/div[1]/div[1]/span     .text
+
     # 检查cookie有效性
     def checkCookies(self,chrome,jxsid):
         chrome.get(
             'https://trade.m.jd.com/order/orderlist_jdm.shtml?sceneval=2&jxsid=' + jxsid + '&orderType=all&ptag=7155.1.11')
         if '我的订单' in chrome.page_source:
+            try:
+                self.getUsername(chrome)
+            except:
+                self.printf("获取用户信息失败")
             self.printf("cookie有效，登陆成功")
             self.loginButton.setText("注销")
             self.loginButton.setStyleSheet("background-color: rgb(239,54,63);\n"
@@ -282,7 +297,7 @@ class Main_Window(QMainWindow):
             saveCookie(jobName, chrome.get_cookies())
         else:
             self.printf("cookie失效，请重新登陆")
-            self.exitJd
+            self.exitJd()
 
     # 检查是否拥有库存
     def checkStock(self, sku, areaId):

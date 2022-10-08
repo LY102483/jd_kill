@@ -42,4 +42,5 @@ def saveCookie(name, cookie):
     cookie_file.close()
 
 def deleteCookie(name):
+    print("cookie被删除了")
     os.remove(cookiesPath + name + ".json")

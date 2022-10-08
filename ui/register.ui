@@ -14,7 +14,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>京东抢购软件-注册激活(Email：1024839103ly@gmail.com)</string>
+   <string>京东抢购软件-注册激活(Email：jdkill2022@outlook.com)</string>
   </property>
   <widget class="QWidget" name="formLayoutWidget">
    <property name="geometry">
@@ -93,7 +93,7 @@
     <string notr="true">color: rgb(255, 0, 0);</string>
    </property>
    <property name="text">
-    <string>注册失败，请邮件联系：1024839103ly@gmail.com</string>
+    <string>注册失败，请邮件联系：jdkill2022@outlook.com</string>
    </property>
    <property name="alignment">
     <set>Qt::AlignCenter</set>

@@ -54,7 +54,7 @@ class Register_Window(object):
 
     def retranslateUi(self, register_window):
         _translate = QtCore.QCoreApplication.translate
-        register_window.setWindowTitle(_translate("register_window", "京东抢购软件-注册激活(Email：1024839103ly@gmail.com)"))
+        register_window.setWindowTitle(_translate("register_window", "京东抢购软件-注册激活(Email：jdkill2022@outlook.com)"))
         self.id.setText(_translate("register_window", "注册码:"))
         self.registerButton.setText(_translate("register_window", "注册"))
 
@@ -80,7 +80,7 @@ class Register_Window(object):
                 self.openMain()
             else:
                 print("校验失败")
-                self.error.setText("注册失败，请邮件联系：1024839103ly@gmail.com")
+                self.error.setText("注册失败，请邮件联系：jdkill2022@outlook.com")
                 self.error.show()
             '''
             self.openMain() #Mac开发临时关闭
