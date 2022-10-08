@@ -23,7 +23,7 @@ class ChromeBrowser:
         chrome_options = webdriver.ChromeOptions()
         # 设置UA
         chrome_options.add_argument(
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1')
+            '--user-agent=Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1')
         # 选择让谷歌模拟的设备
         # mobileEmulation = {"deviceName": "iPhone XR"}
         # chrome_options.add_experimental_option("mobileEmulation", mobileEmulation)
@@ -34,7 +34,7 @@ class ChromeBrowser:
             # 不加载图片, 提升速度
             chrome_options.add_argument('--blink-settings=imagesEnabled=false')
             # 不打开浏览器窗口
-            chrome_options.add_argument("headless")
+            # chrome_options.add_argument("headless")
 
         # chrome_options.add_argument("headless")
         # 隐藏正受到自动测试软件的控制。
