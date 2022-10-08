@@ -5,11 +5,22 @@ from utils.cookieUtil import checkCookie, mainPath, jobName
 
 class ChromeBrowser:
     def __init__(self):
-        # 模拟浏览器代理
+        chrome_options=self.prepareChrome()
+        # 告诉编译器chromedriver在哪个位置并注册(如更换驱动版本则需要进行修改)
+        self.chrome = webdriver.Chrome(mainPath + "/utils/chromedriver",
+                                       chrome_options=chrome_options)
 
+        # 设置窗口大小和位置
+        self.chrome.set_window_size(390, 884)
+        self.chrome.set_window_position(0, 0)
+
+        # def openChrome(chrome_options):
+        #     chrome = webdriver.Chrome(mainPath + "/utils/chromedriver",chrome_options=chrome_options)
+        #     chrome.set_window_size(390, 884)
+        #     chrome.set_window_position(0, 0)
+    def prepareChrome(self):
         # 设置Chrome浏览器
         chrome_options = webdriver.ChromeOptions()
-
         # 设置UA
         chrome_options.add_argument(
             'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1')
@@ -28,13 +39,4 @@ class ChromeBrowser:
         # chrome_options.add_argument("headless")
         # 隐藏正受到自动测试软件的控制。
         chrome_options.add_experimental_option('excludeSwitches', ['enable-automation'])
-
-        # 告诉编译器chromedriver在哪个位置并注册(如更换驱动版本则需要进行修改)
-        self.chrome = webdriver.Chrome(mainPath + "/utils/chromedriver",
-                                       chrome_options=chrome_options)
-
-        # 设置窗口大小和位置
-        self.chrome.set_window_size(390, 884)
-        self.chrome.set_window_position(0, 0)
-
-
+        return chrome_options

@@ -158,9 +158,14 @@ class Main_Window(QMainWindow):
         self.goodsOKButton.clicked.connect(self.goodsOkBuy)
         #定时抢购按钮绑定
         self.BuyOnTime.clicked.connect(self.buyOnTime)
+        #更新地址按钮绑定
+        self.refreshAddressButton.clicked.connect(self.loginJd)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+        # 有本地cookie则自动登陆
+        if checkCookie(jobName):
+            self.loginJd()
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
@@ -231,8 +236,8 @@ class Main_Window(QMainWindow):
                         chrome.quit()
                     else:
                         self.printf("登陆失败，请重试")
-                except:
-                    self.printf("发生无法避免的错误，请联系开发人员")
+                except Exception as errorInfo:
+                    self.printf("发生无法避免的错误，请按照标准流程重试，如仍发生错误，请联系开发人员.")
             # 假如有本地cookie
             else:
                 self.printf("检测到本地cookie，开始使用本地cookie进行登录")
@@ -248,13 +253,12 @@ class Main_Window(QMainWindow):
                     self.printf("cookie加载出现问题，登陆可能失效,正在进行检查")
                 time.sleep(1)
                 chrome.refresh()
+                print("cookie已加载进浏览器并进行了刷新")
                 self.checkCookies(chrome,jxsid)
-                chrome.close()
-                chrome.quit()
         except selenium.common.exceptions.WebDriverException:
             self.printf("无法连接到京东服务器")
         except Exception as errorInfo:
-            self.printf("发生未知异常，请联系开发者，异常原因：" + str(errorInfo))
+            self.printf("发生无法避免的错误，请按照标准流程重试，如仍发生错误，请联系开发人员.")
 
     # 京东的注销方法
     def exitJd(self):
@@ -265,28 +269,29 @@ class Main_Window(QMainWindow):
         self.loginButton.setStyleSheet("background-color: rgb(81, 142, 255);\n"
                                        "color: rgb(255, 255, 255);")
         self.loginButton.setObjectName("loginButton")
-        self.loginButton.clicked.disconnect(self.exitJd)
-        self.loginButton.clicked.connect(self.loginJd)
+        self.username.setText("未登录")
+        self.address.setText("")
+        # 更换绑定
+        try:
+            self.loginButton.clicked.disconnect(self.exitJd)
+        except Exception:
+            pass
+        try:
+            self.loginButton.clicked.connect(self.loginJd)
+        except Exception:
+            pass
 
-    #获取用户名
-    def getUsername(self,chrome):
-        chrome.get('https://home.m.jd.com/myJd/newhome.action')
-        print(chrome.page_source)
-        username=chrome.find_element(By.ID,"mCommonFooter]").text
-        print(username)
-        # url:  https://home.m.jd.com/myJd/newhome.action
-        # xpath://*[@id="mCommonFooter"]/ul[1]/li[1]/a     .text
-        # xpath:   //*[@id="myHeader"]/div[1]/div[1]/div[2]/div[1]/div[1]/span     .text
 
-    # 检查cookie有效性
+
+    # 检查cookie有效性,获取用户名，默认收货地址
     def checkCookies(self,chrome,jxsid):
+        username=''
+        address=''
+        appCode=''
+        print("开始检查cookie")
         chrome.get(
-            'https://trade.m.jd.com/order/orderlist_jdm.shtml?sceneval=2&jxsid=' + jxsid + '&orderType=all&ptag=7155.1.11')
+            'https://trade.m.jd.com/order/orderlist_jdm.shtml?sceneval=2&jxsid=' + jxsid + '&orderType=all&ptag=7155.1.11') # 全部订单页面的请求地址
         if '我的订单' in chrome.page_source:
-            try:
-                self.getUsername(chrome)
-            except:
-                self.printf("获取用户信息失败")
             self.printf("cookie有效，登陆成功")
             self.loginButton.setText("注销")
             self.loginButton.setStyleSheet("background-color: rgb(239,54,63);\n"
@@ -294,10 +299,26 @@ class Main_Window(QMainWindow):
             self.loginButton.setObjectName("exitButton")
             self.loginButton.clicked.disconnect(self.loginJd)
             self.loginButton.clicked.connect(self.exitJd)
+            # 收货地址请求页面url:https://wqs.jd.com/my/my_address.shtml?sceneval=2&sid=&source=4&jxsid=16652542868603284611&appCode=ms0ca95114
+            # xpath:/html/body/div[2]/div[3]/div[2]/div[1]/ul/li[2]
+            # 获取用户名并设置(用户名存储在了cookie中)
             saveCookie(jobName, chrome.get_cookies())
+            cookieList = readCookie(jobName)
+            for cookie in cookieList:
+                chrome.add_cookie(cookie)
+                if (cookie['name'] == 'pwdt_id'):
+                    username = cookie['value']
+                if (cookie['name'] == 'appCode'):
+                    appCode = cookie['value']
+            chrome.get('https://wqs.jd.com/my/my_address.shtml?sceneval=2&sid=&source=4&jxsid='+jxsid+'&appCode='+appCode)
+            address=chrome.find_element(By.XPATH,"/html/body/div[2]/div[3]/div[2]/div[1]/ul/li[2]").text[3:]
+            self.address.setText(address)
+            self.username.setText(username if username!='' else '未能成功获取到用户名')
+            return True
         else:
             self.printf("cookie失效，请重新登陆")
             self.exitJd()
+            return False
 
     # 检查是否拥有库存
     def checkStock(self, sku, areaId):
@@ -328,6 +349,7 @@ class Main_Window(QMainWindow):
             self.printf("发生未知异常，请联系开发者，异常原因：" + str(errorInfo))
             return 500
 
+
     # 库存抢购模式
     def goodsOkBuy(self):
         self.printf("进入有货下单模式")
@@ -357,6 +379,8 @@ class Main_Window(QMainWindow):
 
     #定时抢购
     def buyOnTime(self):
+        self.printf("进入定时抢购模式")
+
         # 获取设置的抢购时间并转换为时间戳
         buyTime=self.buyTime.text()
         # "yyyy-MM-dd HH:mm:ss"

@@ -23,10 +23,15 @@ def checkCookie(name):
 
 # 读取cookie
 def readCookie(name):
+    print("开始读取cookie")
+    cookie=[]
     # 以 utf-8 的编码格式打开指定文件
     cookie_file = open(cookiesPath + name + ".json", mode='r')
-    # 输出读取到的数据
-    cookie = json.loads(cookie_file.read())
+    try:
+        # 输出读取到的数据
+        cookie = json.loads(cookie_file.read())
+    except:
+        deleteCookie(jobName)
     # 关闭文件
     cookie_file.close()
     return cookie
