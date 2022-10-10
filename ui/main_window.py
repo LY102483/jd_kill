@@ -9,13 +9,16 @@ from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 
 import time
+
+from selenium.webdriver import ActionChains
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import wait
+from selenium.webdriver.support.wait import WebDriverWait
 
 import utils.depend
 # from jd_utils import register_util   #Mac开发临时关闭
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
-
+from selenium.webdriver.support import expected_conditions as EC
 # 主窗口
 class Main_Window(QMainWindow):
     def __init__(self):
@@ -483,22 +486,18 @@ class Main_Window(QMainWindow):
         try:
             # 点击立即购买
             chrome.find_element(By.ID, "buyBtn2").click()
-            print("立即购买按钮已点击")
-            # 点击确认
-            # chrome.find_element(By.ID, "popupConfirm").click()  #弃用
-            # chrome.find_element(By.XPATH, "/html/body/div[13]/div/div[7]/div").click()  #弃用
-            # chrome.find_element_by_css_selector("[class='btn red']").click
-            time.sleep(70)
-        except Exception as errorInfo:
-            print(errorInfo)
+            time.sleep(0.2)
+            #点击确认按钮
+            chrome.find_element(By.ID,"popupConfirm").click()
+        except:
             return 404
         try:
-            # 提交订单
-            chrome.find_element(By.XPATH,
-                                "/html/body/div[2]/div/div/taro-view-core[1]/taro-view-core[2]/taro-view-core/taro-view-core[2]/taro-custom-wrapper-core[1]/taro-view-core[1]/taro-button-core").click()
+            #提交订单
+            confirmOrder=WebDriverWait(chrome, 3).until(EC.presence_of_element_located((By.XPATH,'//*[contains(text(),"在线支付")]')))
+            confirmOrder.click()
         except:
-            return 405
-        if '京东收银台' in chrome.page_source:
+            return 505
+        if WebDriverWait(chrome, 3).until(EC.presence_of_element_located((By.XPATH, '//*[contains(text(),"京东收银台"]'))) is not None:
             return 200
         else:
             return 201
