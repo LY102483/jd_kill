@@ -10,11 +10,11 @@ from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 
 import time
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support import wait
 
 import utils.depend
 # from jd_utils import register_util   #Mac开发临时关闭
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
-
 
 # 主窗口
 class Main_Window(QMainWindow):
@@ -396,10 +396,26 @@ class Main_Window(QMainWindow):
                 self.printf('监控地区代码：' + areaId)
                 # 请求地址：https://item-soa.jd.com/getWareBusiness?skuId=100012043978&area=22_2022_2028_43722
                 getUrl = 'https://item-soa.jd.com/getWareBusiness?skuId=' + sku + '&area=' + areaId
+                cnt=0#记录购买操作次数
                 while (True):
                     stockState = self.checkStock(sku, areaId)
                     if stockState == 1:
-                        self.printf("检测到库存")
+
+                        self.printf("检测到库存,开始执行自动下单！")
+                        buyState = self.bugMethod(chrome, sku)
+                        if  buyState == 200:
+                            self.printf("下单成功")
+                            break
+                        elif buyState == 201:
+                            self.printf("下单失败，正在重试")
+                        elif buyState == 404:
+                            self.printf("商品无法购买")
+                        elif buyState == 405:
+                            self.printf("商品无法提交订单，正在重试")
+                        cnt += 1
+                        if cnt ==5:
+                            self.printf("多次重试下单均失败，任务暂停")
+                            break
                     elif stockState == 0:
                         self.printf("无库存")
                         pass
@@ -438,7 +454,7 @@ class Main_Window(QMainWindow):
 
     def loginCheck(self):
         # code=register_util.register.getCombinNumber()# Mac开发临时关闭
-        code='1024'
+        code = '1024'
         print("开始对账户有效期进行二次验证")
         try:
             db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill',
@@ -448,11 +464,41 @@ class Main_Window(QMainWindow):
             cursor.execute(sql)
             data = cursor.fetchone()
             db.close()
-            print(data)
-            if data!=None:
+            if data != None:
                 return True
             else:
                 return False
         except Exception as e:
             self.printf("网络发生错误，请检查网络。")
             return False
+
+    def bugMethod(self, chrome, sku):
+
+        # 测试样本：
+        # sku:  100008153202
+        # areaId:   22_2022_2028_43722
+        # url:https://item.m.jd.com/product/10061406568625.html?_fd=jdm&cover=jfs/t1/131025/35/31410/101564/632eda98E10a17ad1/55df91952629b181.jpg&ptag=
+        url = "https://item.m.jd.com/product/" + sku + ".html?_fd=jdm"
+        chrome.get(url)
+        try:
+            # 点击立即购买
+            chrome.find_element(By.ID, "buyBtn2").click()
+            print("立即购买按钮已点击")
+            # 点击确认
+            # chrome.find_element(By.ID, "popupConfirm").click()  #弃用
+            # chrome.find_element(By.XPATH, "/html/body/div[13]/div/div[7]/div").click()  #弃用
+            # chrome.find_element_by_css_selector("[class='btn red']").click
+            time.sleep(70)
+        except Exception as errorInfo:
+            print(errorInfo)
+            return 404
+        try:
+            # 提交订单
+            chrome.find_element(By.XPATH,
+                                "/html/body/div[2]/div/div/taro-view-core[1]/taro-view-core[2]/taro-view-core/taro-view-core[2]/taro-custom-wrapper-core[1]/taro-view-core[1]/taro-button-core").click()
+        except:
+            return 405
+        if '京东收银台' in chrome.page_source:
+            return 200
+        else:
+            return 201
