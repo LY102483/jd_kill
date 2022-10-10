@@ -269,7 +269,6 @@ class Main_Window(QMainWindow):
             self.printf("cookie加载出现问题，登陆可能失效,正在进行检查")
         time.sleep(1)
         chrome.refresh()
-        print("cookie已加载进浏览器并进行了刷新")
         if self.checkCookies(chrome, jxsid):
             return True
         else:
@@ -277,7 +276,6 @@ class Main_Window(QMainWindow):
 
     # 京东的注销方法
     def exitJd(self):
-        print("进入了京东的注销方法")
         deleteCookie(jobName)
         self.printf("已退出京东登陆并删除本地cookie")
         self.loginButton.setText("登陆")
@@ -301,7 +299,6 @@ class Main_Window(QMainWindow):
         username = ''
         address = ''
         appCode = ''
-        print("开始检查cookie")
         chrome.get(
             'https://trade.m.jd.com/order/orderlist_jdm.shtml?sceneval=2&jxsid=' + jxsid + '&orderType=all&ptag=7155.1.11')  # 全部订单页面的请求地址
         if '我的订单' in chrome.page_source:
@@ -383,7 +380,6 @@ class Main_Window(QMainWindow):
         chrome = utils.depend.ChromeBrowser().chrome
         # 检查登录状态
         if self.loginByCookie(chrome) and self.loginCheck():
-            print("登陆状态检查通过")
             sku = self.sku.text()
             areaId = self.areaId.text()
             stockState = -1  # 用于判断是否继续进行库存监控(该功能初步构想是通过回调函数实现)
@@ -440,17 +436,33 @@ class Main_Window(QMainWindow):
     # 定时抢购
     def buyOnTime(self):
         self.printf("进入定时抢购模式")
-
+        chrome = utils.depend.ChromeBrowser().chrome
+        self.loginByCookie(chrome)
+        sku = self.sku.text()
         # 获取设置的抢购时间并转换为时间戳
         buyTime = self.buyTime.text()
         # "yyyy-MM-dd HH:mm:ss"
         buyTime = time.mktime(time.strptime(buyTime, '%Y-%m-%d %H:%M:%S'))
         buyTime = int(round(buyTime * 1000))  # 毫秒级时间戳
-
+        cnt = 0  # 记录购买操作次数
         while True:
             localTime = int(round(time.time() * 1000))
             if localTime >= buyTime:
                 self.printf("到达抢购时间，开始执行")
+                buyState = self.bugMethod(chrome, sku)
+                if buyState == 200:
+                    self.printf("下单成功")
+                    break
+                elif buyState == 201:
+                    self.printf("下单失败，正在重试")
+                elif buyState == 404:
+                    self.printf("商品无法购买")
+                elif buyState == 405:
+                    self.printf("商品无法提交订单，正在重试")
+                cnt += 1
+                if cnt == 5:
+                    self.printf("多次重试下单均失败，任务暂停")
+                    break
                 break
             else:
                 time.sleep(0.05)
@@ -458,7 +470,6 @@ class Main_Window(QMainWindow):
     def loginCheck(self):
         # code=register_util.register.getCombinNumber()# Mac开发临时关闭
         code = '1024'
-        print("开始对账户有效期进行二次验证")
         try:
             db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill',
                                  charset='utf8')
@@ -488,16 +499,21 @@ class Main_Window(QMainWindow):
             chrome.find_element(By.ID, "buyBtn2").click()
             time.sleep(0.2)
             #点击确认按钮
-            chrome.find_element(By.ID,"popupConfirm").click()
+            # chrome.find_element(By.ID,"popupConfirm").click()
+            WebDriverWait(chrome, 3).until(
+                EC.presence_of_element_located((By.ID,"popupConfirm"))).click()
         except:
             return 404
         try:
             #提交订单
-            confirmOrder=WebDriverWait(chrome, 3).until(EC.presence_of_element_located((By.XPATH,'//*[contains(text(),"在线支付")]')))
+            confirmOrder = WebDriverWait(chrome, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'Submit_index__submit__35PK0')))
             confirmOrder.click()
-        except:
-            return 505
-        if WebDriverWait(chrome, 3).until(EC.presence_of_element_located((By.XPATH, '//*[contains(text(),"京东收银台"]'))) is not None:
+        except Exception as errorInfo:
+            return 405
+
+        if WebDriverWait(chrome, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'Header'))) is not None:
             return 200
         else:
             return 201

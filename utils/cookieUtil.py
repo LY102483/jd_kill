@@ -23,7 +23,6 @@ def checkCookie(name):
 
 # 读取cookie
 def readCookie(name):
-    print("开始读取cookie")
     cookie=[]
     # 以 utf-8 的编码格式打开指定文件
     cookie_file = open(cookiesPath + name + ".json", mode='r')
@@ -47,5 +46,4 @@ def saveCookie(name, cookie):
     cookie_file.close()
 
 def deleteCookie(name):
-    print("cookie被删除了")
     os.remove(cookiesPath + name + ".json")
