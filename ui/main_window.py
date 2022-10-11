@@ -20,6 +20,8 @@ import utils.depend
 # from jd_utils import register_util   #Mac开发临时关闭
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
 from selenium.webdriver.support import expected_conditions as EC
+
+
 # 主窗口
 class Main_Window(QMainWindow):
     def __init__(self):
@@ -100,12 +102,6 @@ class Main_Window(QMainWindow):
         self.buyTime.setObjectName("buyTime")
         self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.buyTime)
 
-        #设置日期的最小值(在当前时间的基础上加5分钟)
-        self.nowTime=datetime.datetime.now()
-        self.time=self.nowTime+datetime.timedelta(minutes=5)
-        self.buyTime.setMinimumDateTime(QDateTime(self.time.year,self.time.month,self.time.day,self.time.hour,self.time.minute,0))
-
-
         self.horizontalLayoutWidget = QtWidgets.QWidget(self.centralwidget)
         self.horizontalLayoutWidget.setGeometry(QtCore.QRect(10, 330, 341, 41))
         self.horizontalLayoutWidget.setObjectName("horizontalLayoutWidget")
@@ -164,6 +160,17 @@ class Main_Window(QMainWindow):
         self.infoPrint.setStyleSheet("color: rgb(255, 255, 255);\n"
                                      "background-color: rgb(0, 0, 0);")
         self.infoPrint.setObjectName("infoPrint")
+
+        self.nowTime = datetime.datetime.now()
+        # 设置定时下单的最小值
+        self.buyTime.setMinimumDateTime(
+            QDateTime(self.nowTime.year, self.nowTime.month, self.nowTime.day, self.nowTime.hour, self.nowTime.minute,
+                      self.nowTime.second))
+        # 设置定时下单的默认值(在当前时间的基础上加5分钟)
+        # self.timeDefault = self.nowTime + datetime.timedelta(minutes=5)
+        # 最小购买数量购买数量
+        self.buyCnt.setMinimum(1)
+
         MainWindow.setCentralWidget(self.centralwidget)
 
         # 京东登录按钮绑定
@@ -177,7 +184,6 @@ class Main_Window(QMainWindow):
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
-
 
         # 有本地cookie则自动登陆
         if checkCookie(jobName):
@@ -362,7 +368,6 @@ class Main_Window(QMainWindow):
             'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
         }
         try:
-
             resp_json = requests.get(url=getUrl, headers=headers, timeout=10).text
             resp_json = json.loads(resp_json)
             stock_info = resp_json.get(sku)
@@ -392,6 +397,7 @@ class Main_Window(QMainWindow):
         if self.loginByCookie(chrome) and self.loginCheck():
             sku = self.sku.text()
             areaId = self.areaId.text()
+            buyCnt = self.buyCnt.text()
             stockState = -1  # 用于判断是否继续进行库存监控(该功能初步构想是通过回调函数实现,暂时还未完成开发)
             cookies = {}
             # 获取cookie中的name和value,转化成requests可以使用的形式
@@ -404,16 +410,28 @@ class Main_Window(QMainWindow):
                 self.printf('商品sku：' + sku)
                 self.printf('监控地区代码：' + areaId)
                 # 请求地址：https://item-soa.jd.com/getWareBusiness?skuId=100012043978&area=22_2022_2028_43722
-                getUrl = 'https://item-soa.jd.com/getWareBusiness?skuId=' + sku + '&area=' + areaId
-                cnt=0#记录购买操作次数
+                url = "https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + str(
+                    buyCnt) + "," + sku + ",1,1,1&type=0&lg=0&supm=0"
+                cnt = 0  # 记录购买操作次数
                 while (True):
                     stockState = self.checkStock(sku, areaId)
                     if stockState == 1:
 
                         self.printf("检测到库存,开始执行自动下单！")
-                        buyState = self.bugMethod(chrome, sku)
-                        if  buyState == 200:
+                        buyState = self.bugMethod(chrome, url)
+                        if buyState == 200:
                             self.printf("下单成功")
+                            payState = self.inputPw(chrome)
+                            if payState == 0:
+                                self.printf("没有获取到支付密码，请自行支付")
+                            elif payState == 1:
+                                self.printf("支付成功")
+                            elif payState == 404:
+                                self.printf("无法进入付款页面")
+                            elif payState == 405:
+                                self.printf("无法输入密码")
+                            elif payState == 2:
+                                self.printf("支付失败")
                             break
                         elif buyState == 201:
                             self.printf("下单失败，正在重试")
@@ -422,7 +440,7 @@ class Main_Window(QMainWindow):
                         elif buyState == 405:
                             self.printf("商品无法提交订单，正在重试")
                         cnt += 1
-                        if cnt ==5:
+                        if cnt == 5:
                             self.printf("多次重试下单均失败，任务暂停")
                             break
                     elif stockState == 0:
@@ -455,15 +473,29 @@ class Main_Window(QMainWindow):
         buyTime = time.mktime(time.strptime(buyTime, '%Y-%m-%d %H:%M:%S'))
         buyTime = int(round(buyTime * 1000))  # 毫秒级时间戳
         cnt = 0  # 记录购买操作次数
-        buyCnt = 1  # 购买的数量
-        url = "https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + str(buyCnt) + "," + sku + ",1,1,1&type=0&lg=0&supm=0"
+
+        buyCnt = self.buyCnt.text()  # 购买的数量
+
+        url = "https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + str(
+            buyCnt) + "," + sku + ",1,1,1&type=0&lg=0&supm=0"
         while True:
-            localTime = int(round(time.time() * 1000))+15
+            localTime = int(round(time.time() * 1000)) + 15
             if localTime >= buyTime:
                 # self.printf("到达抢购时间，开始执行")
                 buyState = self.bugMethod(chrome, url)
                 if buyState == 200:
                     self.printf("下单成功")
+                    payState = self.inputPw(chrome)
+                    if payState == 0:
+                        self.printf("没有获取到支付密码，请自行支付")
+                    elif payState == 1:
+                        self.printf("支付成功")
+                    elif payState == 404:
+                        self.printf("无法进入付款页面")
+                    elif payState == 405:
+                        self.printf("无法输入密码")
+                    elif payState == 2:
+                        self.printf("支付失败")
                     break
                 elif buyState == 201:
                     self.printf("下单失败，正在重试")
@@ -499,9 +531,9 @@ class Main_Window(QMainWindow):
             return False
 
     def bugMethod(self, chrome, url):
-
         # 测试样本：
         # sku:  100008153202
+        # sku:  5059594
         # areaId:   22_2022_2028_43722
         # https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/100008153202.html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=100008153202,,1,100008153202,1,1,1&type=0&lg=0&supm=0
         try:
@@ -509,14 +541,57 @@ class Main_Window(QMainWindow):
         except:
             return 404
         try:
-            confirmOrder=WebDriverWait(chrome, 10).until(
+            confirmOrder = WebDriverWait(chrome, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'Submit_index__submit__35PK0')))
             confirmOrder.click()
         except Exception as errorInfo:
             return 405
-
-        if WebDriverWait(chrome, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'Header'))) is not None:
+        try:
+            # 自动跳到收银台
+            WebDriverWait(chrome, 10).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'Header')))
             return 200
-        else:
+        except:
+            # 没有自动跳到收银台
+            try:
+                payButton = WebDriverWait(chrome, 10).until(
+                    EC.text_to_be_present_in_element((By.TAG_NAME, 'html'), "去支付")(chrome))
+                return 200
+            except:
+                print("没有找到去支付这个关键字")
             return 201
+
+    def inputPw(self, chrome):
+        password = self.payPassword.text()
+        if password == "":
+            return 0  # 没有密码
+        else:
+            try:
+                # 点击立即付款
+                payBtn = WebDriverWait(chrome, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, 'payBtn')))
+                payBtn.click()
+            except:
+                return 404  # 无法进入付款页面
+
+            # 获取密码键盘并进行输入
+            try:
+                passwordKeyBoard = WebDriverWait(chrome, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, 'sys-area')))
+                chrome.find_element(By.XPATH, '//*[@data-key="' + password[0] + '"]').click()
+                chrome.find_element(By.XPATH, '//*[@data-key="' + password[1] + '"]').click()
+                chrome.find_element(By.XPATH, '//*[@data-key="' + password[2] + '"]').click()
+                chrome.find_element(By.XPATH, '//*[@data-key="' + password[3] + '"]').click()
+                chrome.find_element(By.XPATH, '//*[@data-key="' + password[4] + '"]').click()
+                chrome.find_element(By.XPATH, '//*[@data-key="' + password[5] + '"]').click()
+            except:
+                return 405  # 输入密码失败
+            try:
+                WebDriverWait(chrome, 10).until(
+                    EC.presence_of_element_located((By.CLASS_NAME, 'key')))
+                if '收款方' in chrome.page_source:
+                    return 1
+                else:
+                    return 2
+            except:
+                return 2  # 付款失败

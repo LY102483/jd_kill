@@ -85,6 +85,7 @@ class Register_Window(object):
             '''
             self.openMain() #Mac开发临时关闭
         except Exception as e:
+            print(str(e))
             self.error.setText("网络发生错误，请检查网络。")
     #登录成功打开新窗口
     def openMain(self):
