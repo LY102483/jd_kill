@@ -6,6 +6,7 @@ import pymysql
 import requests
 import selenium
 from PyQt5 import QtCore, QtGui, QtWidgets
+from PyQt5.QtCore import QDateTime
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
 
 import time
@@ -98,6 +99,13 @@ class Main_Window(QMainWindow):
         self.buyTime.setMinimumDateTime(QtCore.QDateTime(QtCore.QDate(1752, 9, 14), QtCore.QTime(0, 0, 1)))
         self.buyTime.setObjectName("buyTime")
         self.formLayout.setWidget(3, QtWidgets.QFormLayout.FieldRole, self.buyTime)
+
+        #设置日期的最小值(在当前时间的基础上加5分钟)
+        self.nowTime=datetime.datetime.now()
+        self.time=self.nowTime+datetime.timedelta(minutes=5)
+        self.buyTime.setMinimumDateTime(QDateTime(self.time.year,self.time.month,self.time.day,self.time.hour,self.time.minute,0))
+
+
         self.horizontalLayoutWidget = QtWidgets.QWidget(self.centralwidget)
         self.horizontalLayoutWidget.setGeometry(QtCore.QRect(10, 330, 341, 41))
         self.horizontalLayoutWidget.setObjectName("horizontalLayoutWidget")
@@ -169,6 +177,8 @@ class Main_Window(QMainWindow):
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
+
+
         # 有本地cookie则自动登陆
         if checkCookie(jobName):
             self.loginJd()
@@ -382,7 +392,7 @@ class Main_Window(QMainWindow):
         if self.loginByCookie(chrome) and self.loginCheck():
             sku = self.sku.text()
             areaId = self.areaId.text()
-            stockState = -1  # 用于判断是否继续进行库存监控(该功能初步构想是通过回调函数实现)
+            stockState = -1  # 用于判断是否继续进行库存监控(该功能初步构想是通过回调函数实现,暂时还未完成开发)
             cookies = {}
             # 获取cookie中的name和value,转化成requests可以使用的形式
             # seleniumCookie = chrome.get_cookies()
@@ -445,11 +455,13 @@ class Main_Window(QMainWindow):
         buyTime = time.mktime(time.strptime(buyTime, '%Y-%m-%d %H:%M:%S'))
         buyTime = int(round(buyTime * 1000))  # 毫秒级时间戳
         cnt = 0  # 记录购买操作次数
+        buyCnt = 1  # 购买的数量
+        url = "https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + str(buyCnt) + "," + sku + ",1,1,1&type=0&lg=0&supm=0"
         while True:
-            localTime = int(round(time.time() * 1000))
+            localTime = int(round(time.time() * 1000))+15
             if localTime >= buyTime:
-                self.printf("到达抢购时间，开始执行")
-                buyState = self.bugMethod(chrome, sku)
+                # self.printf("到达抢购时间，开始执行")
+                buyState = self.bugMethod(chrome, url)
                 if buyState == 200:
                     self.printf("下单成功")
                     break
@@ -465,7 +477,7 @@ class Main_Window(QMainWindow):
                     break
                 break
             else:
-                time.sleep(0.05)
+                continue
 
     def loginCheck(self):
         # code=register_util.register.getCombinNumber()# Mac开发临时关闭
@@ -486,27 +498,18 @@ class Main_Window(QMainWindow):
             self.printf("网络发生错误，请检查网络。")
             return False
 
-    def bugMethod(self, chrome, sku):
+    def bugMethod(self, chrome, url):
 
         # 测试样本：
         # sku:  100008153202
         # areaId:   22_2022_2028_43722
-        # url:https://item.m.jd.com/product/10061406568625.html?_fd=jdm&cover=jfs/t1/131025/35/31410/101564/632eda98E10a17ad1/55df91952629b181.jpg&ptag=
-        url = "https://item.m.jd.com/product/" + sku + ".html?_fd=jdm"
-        chrome.get(url)
+        # https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/100008153202.html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=100008153202,,1,100008153202,1,1,1&type=0&lg=0&supm=0
         try:
-            # 点击立即购买
-            chrome.find_element(By.ID, "buyBtn2").click()
-            time.sleep(0.2)
-            #点击确认按钮
-            # chrome.find_element(By.ID,"popupConfirm").click()
-            WebDriverWait(chrome, 3).until(
-                EC.presence_of_element_located((By.ID,"popupConfirm"))).click()
+            chrome.get(url)
         except:
             return 404
         try:
-            #提交订单
-            confirmOrder = WebDriverWait(chrome, 10).until(
+            confirmOrder=WebDriverWait(chrome, 10).until(
                 EC.presence_of_element_located((By.CLASS_NAME, 'Submit_index__submit__35PK0')))
             confirmOrder.click()
         except Exception as errorInfo:
