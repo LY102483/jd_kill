@@ -8,7 +8,7 @@ import selenium
 from PyQt5 import QtCore, QtGui, QtWidgets
 from PyQt5.QtCore import QDateTime
 from PyQt5.QtWidgets import QMainWindow, QMessageBox, QWidget
-
+from PyQt5.QtCore import QThread, pyqtSignal
 import time
 
 from selenium.webdriver import ActionChains
@@ -17,6 +17,7 @@ from selenium.webdriver.support import wait
 from selenium.webdriver.support.wait import WebDriverWait
 
 import utils.depend
+from ui.thread import New_Thread
 # from jd_utils import register_util   #Mac开发临时关闭
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
 from selenium.webdriver.support import expected_conditions as EC
@@ -175,10 +176,18 @@ class Main_Window(QMainWindow):
 
         # 京东登录按钮绑定
         self.loginButton.clicked.connect(self.loginJd)
+
         # 有货抢购按钮绑定
-        self.goodsOKButton.clicked.connect(self.goodsOkBuy)
+        # self.goodsOKButton.clicked.connect(self.goodsOkBuy)
         # 定时抢购按钮绑定
-        self.BuyOnTime.clicked.connect(self.buyOnTime)
+        # self.BuyOnTime.clicked.connect(self.buyOnTime)
+
+        # 有货抢购按钮绑定(线程)
+        self.goodsOKButton.clicked.connect(self.Start1)
+        # 定时抢购按钮绑定(线程)
+        self.BuyOnTime.clicked.connect(self.Start0)
+        self.stopButton.clicked.connect(self.Stop)
+
         # 更新地址按钮绑定
         self.refreshAddressButton.clicked.connect(self.loginJd)
 
@@ -357,160 +366,7 @@ class Main_Window(QMainWindow):
             self.exitJd()
             return False
 
-    # 检查是否拥有库存
-    def checkStock(self, sku, areaId):
-
-        # 官方请求地址：https://item-soa.jd.com/getWareBusiness?skuId=100012043978&area=22_2022_2028_43722
-        # 第三方请求地址：https://c0.3.cn/stocks?type=batchstocks&skuIds=100021103403&area=1_72_2799_0
-        # getUrl = 'https://item-soa.jd.com/getWareBusiness?skuId=' + sku + '&area=' + areaId  # 原官方
-        getUrl = 'https://c0.3.cn/stocks?type=batchstocks&skuIds=' + sku + '&area=' + areaId  # 第三方接口
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1',
-        }
-        try:
-            resp_json = requests.get(url=getUrl, headers=headers, timeout=10).text
-            resp_json = json.loads(resp_json)
-            stock_info = resp_json.get(sku)
-            stock_state = stock_info.get('StockState')  # 商品库存状态：33 -- 现货  0,34 -- 无货  36 -- 采购中  40 -- 可配货
-            if stock_state in (33, 40):
-                return 1
-            else:
-                return 0
-        except requests.exceptions.Timeout:
-            # 查询库存超时
-            return 408
-        except requests.exceptions.RequestException as request_exception:
-            # 网络异常
-            return 404
-        except json.decoder.JSONDecodeError:
-            # 返回参数不合法
-            return 417
-        except Exception as errorInfo:
-            self.printf("发生未知异常，请联系开发者，异常原因：" + str(errorInfo))
-            return 500
-
-    # 库存抢购模式
-    def goodsOkBuy(self):
-        self.printf("进入有货下单模式")
-        chrome = utils.depend.ChromeBrowser().chrome
-        # 检查登录状态
-        if self.loginByCookie(chrome) and self.loginCheck():
-            sku = self.sku.text()
-            areaId = self.areaId.text()
-            buyCnt = self.buyCnt.text()
-            stockState = -1  # 用于判断是否继续进行库存监控(该功能初步构想是通过回调函数实现,暂时还未完成开发)
-            cookies = {}
-            # 获取cookie中的name和value,转化成requests可以使用的形式
-            # seleniumCookie = chrome.get_cookies()
-            # for cookie in seleniumCookie:
-            #     cookies[cookie['name']] = cookie['value']
-            if (sku == "") or (areaId == ""):
-                self.printf("商品编号和地区代码不能为空")
-            else:
-                self.printf('商品sku：' + sku)
-                self.printf('监控地区代码：' + areaId)
-                # 请求地址：https://item-soa.jd.com/getWareBusiness?skuId=100012043978&area=22_2022_2028_43722
-                url = "https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + str(
-                    buyCnt) + "," + sku + ",1,1,1&type=0&lg=0&supm=0"
-                cnt = 0  # 记录购买操作次数
-                while (True):
-                    stockState = self.checkStock(sku, areaId)
-                    if stockState == 1:
-
-                        self.printf("检测到库存,开始执行自动下单！")
-                        buyState = self.bugMethod(chrome, url)
-                        if buyState == 200:
-                            self.printf("下单成功")
-                            payState = self.inputPw(chrome)
-                            if payState == 0:
-                                self.printf("没有获取到支付密码，请自行支付")
-                            elif payState == 1:
-                                self.printf("支付成功")
-                            elif payState == 404:
-                                self.printf("无法进入付款页面")
-                            elif payState == 405:
-                                self.printf("无法输入密码")
-                            elif payState == 2:
-                                self.printf("支付失败")
-                            break
-                        elif buyState == 201:
-                            self.printf("下单失败，正在重试")
-                        elif buyState == 404:
-                            self.printf("商品无法购买")
-                        elif buyState == 405:
-                            self.printf("商品无法提交订单，正在重试")
-                        cnt += 1
-                        if cnt == 5:
-                            self.printf("多次重试下单均失败，任务暂停")
-                            break
-                    elif stockState == 0:
-                        self.printf("无库存")
-                        pass
-                    elif stockState == 408:
-                        self.printf("请求超时")
-                        pass
-                    elif stockState == 404:
-                        self.printf("网络异常")
-                        pass
-                    elif stockState == 417:
-                        self.printf("商品编号或地区代码不正确")
-                        pass
-                    elif stockState == 500:
-                        break
-                    time.sleep(1)
-        else:
-            self.printf("账户已过期，请联系开发人员重新开通")
-
-    # 定时抢购
-    def buyOnTime(self):
-        self.printf("进入定时抢购模式")
-        chrome = utils.depend.ChromeBrowser().chrome
-        self.loginByCookie(chrome)
-        sku = self.sku.text()
-        # 获取设置的抢购时间并转换为时间戳
-        buyTime = self.buyTime.text()
-        # "yyyy-MM-dd HH:mm:ss"
-        buyTime = time.mktime(time.strptime(buyTime, '%Y-%m-%d %H:%M:%S'))
-        buyTime = int(round(buyTime * 1000))  # 毫秒级时间戳
-        cnt = 0  # 记录购买操作次数
-
-        buyCnt = self.buyCnt.text()  # 购买的数量
-
-        url = "https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + str(
-            buyCnt) + "," + sku + ",1,1,1&type=0&lg=0&supm=0"
-        while True:
-            localTime = int(round(time.time() * 1000)) + 15
-            if localTime >= buyTime:
-                # self.printf("到达抢购时间，开始执行")
-                buyState = self.bugMethod(chrome, url)
-                if buyState == 200:
-                    self.printf("下单成功")
-                    payState = self.inputPw(chrome)
-                    if payState == 0:
-                        self.printf("没有获取到支付密码，请自行支付")
-                    elif payState == 1:
-                        self.printf("支付成功")
-                    elif payState == 404:
-                        self.printf("无法进入付款页面")
-                    elif payState == 405:
-                        self.printf("无法输入密码")
-                    elif payState == 2:
-                        self.printf("支付失败")
-                    break
-                elif buyState == 201:
-                    self.printf("下单失败，正在重试")
-                elif buyState == 404:
-                    self.printf("商品无法购买")
-                elif buyState == 405:
-                    self.printf("商品无法提交订单，正在重试")
-                cnt += 1
-                if cnt == 5:
-                    self.printf("多次重试下单均失败，任务暂停")
-                    break
-                break
-            else:
-                continue
-
+    # 授权是否过期
     def loginCheck(self):
         # code=register_util.register.getCombinNumber()# Mac开发临时关闭
         code = '1024'
@@ -530,68 +386,61 @@ class Main_Window(QMainWindow):
             self.printf("网络发生错误，请检查网络。")
             return False
 
-    def bugMethod(self, chrome, url):
-        # 测试样本：
-        # sku:  100008153202
-        # sku:  5059594
-        # areaId:   22_2022_2028_43722
-        # https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/100008153202.html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=100008153202,,1,100008153202,1,1,1&type=0&lg=0&supm=0
-        try:
-            chrome.get(url)
-        except:
-            return 404
-        try:
-            confirmOrder = WebDriverWait(chrome, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'Submit_index__submit__35PK0')))
-            confirmOrder.click()
-        except Exception as errorInfo:
-            return 405
-        try:
-            # 自动跳到收银台
-            WebDriverWait(chrome, 10).until(
-                EC.presence_of_element_located((By.CLASS_NAME, 'Header')))
-            return 200
-        except:
-            # 没有自动跳到收银台
-            try:
-                payButton = WebDriverWait(chrome, 10).until(
-                    EC.text_to_be_present_in_element((By.TAG_NAME, 'html'), "去支付")(chrome))
-                return 200
-            except:
-                print("没有找到去支付这个关键字")
-            return 201
+    def Stop(self):
+        print('End')
+        self.thread
+        self.thread.terminate()  # 终止线程
 
-    def inputPw(self, chrome):
-        password = self.payPassword.text()
-        if password == "":
-            return 0  # 没有密码
-        else:
-            try:
-                # 点击立即付款
-                payBtn = WebDriverWait(chrome, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'payBtn')))
-                payBtn.click()
-            except:
-                return 404  # 无法进入付款页面
+    def Start0(self):
 
-            # 获取密码键盘并进行输入
-            try:
-                passwordKeyBoard = WebDriverWait(chrome, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'sys-area')))
-                chrome.find_element(By.XPATH, '//*[@data-key="' + password[0] + '"]').click()
-                chrome.find_element(By.XPATH, '//*[@data-key="' + password[1] + '"]').click()
-                chrome.find_element(By.XPATH, '//*[@data-key="' + password[2] + '"]').click()
-                chrome.find_element(By.XPATH, '//*[@data-key="' + password[3] + '"]').click()
-                chrome.find_element(By.XPATH, '//*[@data-key="' + password[4] + '"]').click()
-                chrome.find_element(By.XPATH, '//*[@data-key="' + password[5] + '"]').click()
-            except:
-                return 405  # 输入密码失败
-            try:
-                WebDriverWait(chrome, 10).until(
-                    EC.presence_of_element_located((By.CLASS_NAME, 'key')))
-                if '收款方' in chrome.page_source:
-                    return 1
-                else:
-                    return 2
-            except:
-                return 2  # 付款失败
+        # code=0 定时抢购
+        # code=1 有货抢购
+        print('Start clicked.')
+        self.thread = New_Thread(code=0,sku=self.sku.text(),cnt=self.buyCnt.text(),areaId=self.areaId.text(),buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程，参数t设置为100
+        # 将线程thread的信号finishSignal和UI主线程中的槽函数Change进行连接
+        self.thread.finishSignal.connect(self.printf)
+        self.thread.succesLogin.connect(self.succesLogin)
+        self.thread.exitLogin.connect(self.exitLogin)
+        # 启动线程，执行线程类中run函数
+        self.thread.start()
+
+    def Start1(self):
+        # code=0 定时抢购
+        # code=1 有货抢购
+        self.thread = New_Thread(code=1,sku=self.sku,cnt=self.buyCnt.text(),areaId=self.areaId,buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程，参数t设置为100
+        # 将线程thread的信号finishSignal和UI主线程中的槽函数Change进行连接
+        self.thread.finishSignal.connect(self.printf)
+        # 启动线程，执行线程类中run函数
+        self.thread.start()
+
+    # def Change(self, msg):
+    #     print(msg)
+    #     self.printf(msg)
+
+    # 设置登录成功的样式
+    def succesLogin(self,state,username,address):
+        self.printf("cookie有效，登陆成功")
+        self.loginButton.setText("注销")
+        self.loginButton.setStyleSheet("background-color: rgb(239,54,63);\n"
+                                       "color:white;")
+        self.loginButton.setObjectName("exitButton")
+        try:
+            self.loginButton.clicked.disconnect(self.loginJd)
+        except Exception:
+            pass
+        try:
+            self.loginButton.clicked.connect(self.exitJd)
+        except Exception:
+            pass
+        self.address.setText(address)
+        self.username.setText(username if username != '' else '未能成功获取到用户名')
+
+    # 退出京东的样式
+    def exitLogin(self,state):
+        self.loginButton.setText("登陆")
+        self.loginButton.setStyleSheet("background-color: rgb(81, 142, 255);\n"
+                                       "color: rgb(255, 255, 255);")
+        self.loginButton.setObjectName("loginButton")
+        self.username.setText("未登录")
+        self.address.setText("")
+        pass
