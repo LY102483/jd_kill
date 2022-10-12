@@ -1,7 +1,7 @@
 from PyQt5 import QtCore, QtGui, QtWidgets, Qt
 
 #Mac开发临时关闭
-# from jd_utils.register_util import register
+from jd_utils.register_util import register
 
 import pymysql
 import ui.main_window
@@ -59,7 +59,7 @@ class Register_Window(object):
         self.registerButton.setText(_translate("register_window", "注册"))
 
         #Mac开发临时关闭
-        # self.MachineCode.setText(register().getCombinNumber())
+        self.MachineCode.setText(register().getCombinNumber())
 
 
 
@@ -72,20 +72,13 @@ class Register_Window(object):
             cursor.execute(sql)
             data = cursor.fetchone()
             db.close()
-            '''
-            Mac开发临时关闭
-            
             if data!=None:
-                print("校验成功")
                 self.openMain()
             else:
-                print("校验失败")
                 self.error.setText("注册失败，请邮件联系：jdkill2022@outlook.com")
                 self.error.show()
-            '''
-            self.openMain() #Mac开发临时关闭
+
         except Exception as e:
-            print(str(e))
             self.error.setText("网络发生错误，请检查网络。")
     #登录成功打开新窗口
     def openMain(self):

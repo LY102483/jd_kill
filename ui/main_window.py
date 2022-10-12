@@ -17,6 +17,7 @@ from selenium.webdriver.support import wait
 from selenium.webdriver.support.wait import WebDriverWait
 
 import utils.depend
+from jd_utils import register_util
 from ui.thread import New_Thread
 # from jd_utils import register_util   #Mac开发临时关闭
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
@@ -368,8 +369,7 @@ class Main_Window(QMainWindow):
 
     # 授权是否过期
     def loginCheck(self):
-        # code=register_util.register.getCombinNumber()# Mac开发临时关闭
-        code = '1024'
+        code=register_util.register.getCombinNumber()# Mac开发临时关闭
         try:
             db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill',
                                  charset='utf8')
@@ -387,15 +387,10 @@ class Main_Window(QMainWindow):
             return False
 
     def Stop(self):
-        print('End')
         self.thread
         self.thread.terminate()  # 终止线程
 
     def Start0(self):
-
-        # code=0 定时抢购
-        # code=1 有货抢购
-        print('Start clicked.')
         self.thread = New_Thread(code=0,sku=self.sku.text(),cnt=self.buyCnt.text(),areaId=self.areaId.text(),buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程，参数t设置为100
         # 将线程thread的信号finishSignal和UI主线程中的槽函数Change进行连接
         self.thread.finishSignal.connect(self.printf)

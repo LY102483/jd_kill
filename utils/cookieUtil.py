@@ -46,4 +46,7 @@ def saveCookie(name, cookie):
     cookie_file.close()
 
 def deleteCookie(name):
-    os.remove(cookiesPath + name + ".json")
+    try:
+        os.remove(cookiesPath + name + ".json")
+    except:
+        pass
