@@ -1,7 +1,10 @@
 import datetime
 import json
 import random
+import json
+import time
 
+import requests
 import pymysql
 import requests
 import selenium
@@ -17,20 +20,20 @@ from selenium.webdriver.support import wait
 from selenium.webdriver.support.wait import WebDriverWait
 
 import utils.depend
-from jd_utils import register_util
 # from jd_utils import register_util   #Mac开发临时关闭
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
 from selenium.webdriver.support import expected_conditions as EC
+
 
 # 定义一个线程类
 class New_Thread(QThread):
     # 自定义信号声明
     # 使用自定义信号和UI主线程通讯，参数是发送信号时附带参数的数据类型，可以是str、int、list等
     finishSignal = pyqtSignal(str)
-    succesLogin = pyqtSignal(str,str,str)
+    succesLogin = pyqtSignal(str, str, str)
     exitLogin = pyqtSignal(str)
 
-    def __init__(self, code,  sku, cnt, areaId, payPassword,buyTime='',parent=None):
+    def __init__(self, code, sku, cnt, areaId, payPassword, buyTime='', parent=None):
 
         super(New_Thread, self).__init__(parent)
         # code=0 定时抢购
@@ -40,7 +43,9 @@ class New_Thread(QThread):
         self.cnt = cnt
         self.areaId = areaId
         self.buyTime = buyTime
-        self.payPassword=payPassword
+        self.payPassword = payPassword
+        self.reqCookies = {}
+        self.dealId=''
 
     # run函数是子线程中的操作，线程启动后开始执行
     def run(self):
@@ -54,14 +59,11 @@ class New_Thread(QThread):
             elif self.code == 1:
                 self.goodsOkBuy()
                 pass
-            elif self.code==2:
-                self.payDeposit()
         # code=0 定时抢购
         # code=1 有货抢购
-        # code=3 定金支付
+
     # 检查是否拥有库存
     def checkStock(self, sku, areaId):
-
         # 官方请求地址：https://item-soa.jd.com/getWareBusiness?skuId=100012043978&area=22_2022_2028_43722
         # 第三方请求地址：https://c0.3.cn/stocks?type=batchstocks&skuIds=100021103403&area=1_72_2799_0
         # getUrl = 'https://item-soa.jd.com/getWareBusiness?skuId=' + sku + '&area=' + areaId  # 原官方
@@ -88,16 +90,16 @@ class New_Thread(QThread):
             # 返回参数不合法
             return 417
         except Exception as errorInfo:
-            self.finishSignal.emit("发生未知异常，请联系开发者，异常原因：" + str(errorInfo))
+            self.finishSignal.emit("请求错误，请检查SKU和地区代码的正确性，若问题依然存在，请联系开人员")
             return 500
 
     # 库存抢购模式
     def goodsOkBuy(self):
-        self.finishSignal.emit("进入有货下单模式")
-        chrome = utils.depend.ChromeBrowser().chrome
-        # 检查账户授权状态
-        if self.loginCheck:
-            # 检查cookie
+        # 检查账户是否过期
+        if self.loginCheck():
+            self.finishSignal.emit("进入有货下单模式")
+            chrome = utils.depend.ChromeBrowser().chrome
+            # 检查cookie是否有效
             if self.loginByCookie(chrome):
                 sku = self.sku.text()
                 areaId = self.areaId.text()
@@ -149,7 +151,7 @@ class New_Thread(QThread):
                             pass
                         elif stockState == 500:
                             break
-                        time.sleep(1)#设置库存检测时间间隔1s
+                        time.sleep(1)
                     payState = self.inputPw(chrome)
                     if payState == 0:
                         self.finishSignal.emit("没有获取到支付密码，请自行支付")
@@ -161,15 +163,14 @@ class New_Thread(QThread):
                         self.finishSignal.emit("无法输入密码")
                     elif payState == 2:
                         self.finishSignal.emit("支付失败")
-            else:
-                self.finishSignal.emit("本地cookie已过期，请重新登录")
         else:
             self.finishSignal.emit("账户已过期，请联系开发人员重新开通")
 
     # 定时抢购
     def buyOnTime(self):
-        self.finishSignal.emit("进入定时抢购模式")
-        if self.loginCheck:
+        # 检查账户是否过期
+        if self.loginCheck():
+            self.finishSignal.emit("进入定时抢购模式")
             chrome = utils.depend.ChromeBrowser().chrome
             if self.loginByCookie(chrome):
                 sku = self.sku
@@ -214,9 +215,10 @@ class New_Thread(QThread):
                     else:
                         continue
             else:
-                self.finishSignal.emit("本地cookie失效，请重新登录")
+                self.finishSignal.emit("cookie已过期，请重新登陆")
         else:
-            self.finishSignal.emit("账户授权已过期，请联系开发人员重新注册")
+            self.finishSignal.emit("账户已过期，请联系开发人员重新开通")
+
     # 下单具体方法
     def bugMethod(self, chrome, url):
         # 测试样本：
@@ -224,6 +226,10 @@ class New_Thread(QThread):
         # sku:  5059594
         # areaId:   22_2022_2028_43722
         # https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/100008153202.html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=100008153202,,1,100008153202,1,1,1&type=0&lg=0&supm=0
+
+        '''
+        通过selenium执行下单任务(已废弃)
+
         try:
             chrome.get(url)
         except:
@@ -248,6 +254,99 @@ class New_Thread(QThread):
             except:
                 pass
             return 201
+        '''
+
+        '''
+        通过request执行下单请求
+        '''
+        sku=self.sku
+        ck=self.reqCookies
+        cnt=self.cnt
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Linux; U; Android 9; zh-cn; V1938CT Build/PPR1.180610.011) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/66.0.3359.126 MQQBrowser/10.1 Mobile Safari/537.36",
+            "Connection": "keep-alive",
+            'Host': 'wq.jd.com'
+        }
+
+        headers['Referer'] = "https://wq.jd.com/deal/minfo/orderinfo"
+        session = requests.Session()
+        data = {
+            "appCode": "ms0ca95114",
+            "callback": "orderinfoCbA",
+            "r": "0.08917363780771337",
+            "action": "1",
+            "type": "0",
+            "useaddr": "0",
+            "addressid": "",
+            "dpid": "",
+            "addrType": "1",
+            "paytype": "0",
+            "firstin": "1",
+            "scan_orig": "",
+            "sceneval": "2",
+            "reg": "1",
+            "encryptversion": "1",
+            "commlist": sku + ",," + cnt + "," + sku + ",1,0,0",
+            "cmdyop": "0",
+            "locationid": "",
+            "clearbeancard": "1",
+            "wqref": "https://item.m.jd.com/product/" + sku + ".html?pps=reclike.FO4O605:FOFO00495BC3DF3O13O6:FOFO0F10416O843O1FO3O643O7FFF5021813FO7O17495BC3DF61C1D885ACF71EF2",
+            "g_tk": "5381",
+            "g_ty": "ls"
+        }
+        url = "https://wq.jd.com/deal/minfo/orderinfo"
+        resp = session.post(url, headers=headers, cookies=ck, data=data, verify=False)
+        try:
+            resp = resp.text.replace("orderinfoCbA(", "")
+            resp = resp.replace(")", "")
+            resp = json.loads(resp)
+            token2 = resp["token2"]
+            traceid = resp["traceId"]
+        except:
+            return 405
+
+        data = {
+            'paytype': '0',
+            'paychannel': '1',
+            'action': '1',
+            'reg': '1',
+            'type': '0',
+            'token2': token2,
+            'dpid': '',
+            'skulist': sku,
+            'scan_orig': '',
+            'gpolicy': '',
+            'platprice': '0',
+            'ship': '',
+            'pick': '',
+            'savepayship': '0',
+            'valuableskus': sku + ',' + cnt + ',71800,700',
+            'commlist': sku + ',,' + cnt + ',' + cnt + ',1,0,0',
+            'pwd': 'b59c67bf196a4758191e42f76670ceba',
+            'sceneval': '2',
+            'setdefcoupon': '0',
+            'r': '0.3146251378894271',
+            'callback': 'confirmCbA',
+            'traceid': traceid,
+            'g_pt_tk': '394982073',
+            'g_ty': 'ls',
+            'appCode': 'ms0ca95114'
+        }
+        headers[
+            'Referer'] = "https://wq.jd.com/deal/confirmorder/main?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&jxsid=16426172376700795005&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + cnt + "," + sku + ",1,0,0&locationid=&type=0&lg=0&supm=0"
+        url = 'https://wq.jd.com/deal/msubmit/confirm'
+        resp = session.post(url, data=data, headers=headers, cookies=ck, verify=False)
+        try:
+            resp = json.loads(resp.text.split("(")[1].split(")")[0])
+            if len(resp["dealId"]) != 0:
+                self.dealId = resp["dealId"]
+                return 200
+            else:
+                self.finishSignal.emit(resp["errMsg"])
+                return 405
+        except:
+            return 405
+
 
     # 输入密码
     def inputPw(self, chrome):
@@ -255,6 +354,16 @@ class New_Thread(QThread):
         if password == "":
             return 0  # 没有密码
         else:
+            url="https://trade.m.jd.com/order/n_detail_jdm.shtml?deal_id="+self.dealId+"&sceneval=2&referer=http://wq.jd.com/wxapp//order/orderlist_jdm.shtml?stamp=1"
+            chrome.get(url)
+
+            try:
+                payButton = WebDriverWait(chrome, 10).until(
+                    EC.text_to_be_present_in_element((By.TAG_NAME, 'html'), "去支付")(chrome))
+                return 200
+            except:
+                pass
+
             try:
                 # 点击立即付款
                 payBtn = WebDriverWait(chrome, 10).until(
@@ -297,6 +406,10 @@ class New_Thread(QThread):
                 chrome.add_cookie(cookie)
                 if (cookie['name'] == 'jxsid'):
                     jxsid = cookie['value']
+                if (cookie['name'] == 'pt_key'):
+                    self.reqCookies["pt_key"] = cookie['value']
+                if (cookie['name'] == 'pt_pin'):
+                    self.reqCookies["pt_pin"] = cookie['value']
         except:
             self.finishSignal.emit("cookie加载出现问题，登陆可能失效,正在进行检查")
         time.sleep(1)
@@ -314,8 +427,6 @@ class New_Thread(QThread):
         chrome.get(
             'https://trade.m.jd.com/order/orderlist_jdm.shtml?sceneval=2&jxsid=' + jxsid + '&orderType=all&ptag=7155.1.11')  # 全部订单页面的请求地址
         if '我的订单' in chrome.page_source:
-
-
             # 收货地址请求页面url:https://wqs.jd.com/my/my_address.shtml?sceneval=2&sid=&source=4&jxsid=16652542868603284611&appCode=ms0ca95114
             # xpath:/html/body/div[2]/div[3]/div[2]/div[1]/ul/li[2]
             # 获取用户名并设置(用户名存储在了cookie中)
@@ -333,7 +444,7 @@ class New_Thread(QThread):
                 address = chrome.find_element(By.XPATH, "/html/body/div[2]/div[3]/div[2]/div[1]/ul/li[2]").text[3:]
             except:
                 self.finishSignal.emit("未能成功获取到收货地址")
-            self.succesLogin.emit("True",username,address)
+            self.succesLogin.emit("True", username, address)
             return True
         else:
             self.finishSignal.emit("cookie失效，请重新登陆")
@@ -351,7 +462,8 @@ class New_Thread(QThread):
 
     # 授权是否过期
     def loginCheck(self):
-        code=register_util.register.getCombinNumber() # Mac开发临时关闭
+        # code=register_util.register.getCombinNumber()# Mac开发临时关闭
+        code = '1024'
         try:
             db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill',
                                  charset='utf8')
@@ -368,54 +480,6 @@ class New_Thread(QThread):
             self.finishSignal.emit("网络发生错误，请检查网络。")
             return False
 
-    #关闭Chrome浏览器
-    def closeChrome(self,chrome):
+    # 关闭Chrome浏览器
+    def closeChrome(self, chrome):
         pass
-
-
-    #定时支付定金
-    def payDeposit(self):
-        # url: https://wqs.jd.com/order/s_confirm_booking.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/10045181005210.html?sceneval=2&jxsid=16657486145240692524&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=10045181005210,,1,10045181005210,1,0,0
-        # url: https://wqs.jd.com/order/s_confirm_booking.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/10045181005210.html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=10045181005210,,1,10045181005210,1,0,0
-        self.finishSignal.emit("进入定时支付定金模式")
-        if self.loginCheck:
-            chrome = utils.depend.ChromeBrowser().chrome
-            if self.loginByCookie(chrome):
-                sku = self.sku
-                # 获取设置的抢购时间并转换为时间戳
-                buyTime = self.buyTime
-                # "yyyy-MM-dd HH:mm:ss"
-                buyTime = time.mktime(time.strptime(buyTime, '%Y-%m-%d %H:%M:%S'))
-                buyTime = int(round(buyTime * 1000))  # 毫秒级时间戳
-                buyCnt = self.cnt  # 购买的数量
-                cnt = 0  # 记录购买操作次数
-                print(sku)
-                print("开始拼接URL")
-                url = "https://wqs.jd.com/order/s_confirm_booking.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/"+sku+".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist="+sku+",,"+str(buyCnt)+","+sku+",1,0,0"
-                print(url)
-                chrome.get(url)
-                while True:
-                    localTime = int(round(time.time() * 1000)) + 15
-                    if localTime >= buyTime:
-                        try:
-                            # 点击在线支付
-                            payBtn = WebDriverWait(chrome, 10).until(
-                                EC.presence_of_element_located((By.ID, 'btnPayOnLine')))
-                            payBtn.click()
-                        except:
-                            try:
-                                payBtn= WebDriverWait(chrome, 10).until(
-                                    EC.presence_of_element_located((By.CLASS_NAME, 'payBtn')))
-                                payBtn.click()
-                            except:
-                                self.finishSignal.emit("无法进入京东收银台")
-
-                        # 获取密码键盘并进行输入
-                        try:
-                            self.inputPw(chrome)
-                        except:
-                            self.finishSignal.emit("支付失败")
-            else:
-                self.finishSignal.emit("本地cookie失效，请重新登录")
-        else:
-            self.finishSignal.emit("账户授权已过期，请联系开发人员重新注册")

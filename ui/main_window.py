@@ -190,7 +190,7 @@ class Main_Window(QMainWindow):
         self.stopButton.clicked.connect(self.Stop)
 
         # 更新地址按钮绑定
-        self.refreshAddressButton.clicked.connect(self.Start2)
+        self.refreshAddressButton.clicked.connect(self.loginJd)
 
         self.retranslateUi(MainWindow)
         QtCore.QMetaObject.connectSlotsByName(MainWindow)
@@ -214,7 +214,7 @@ class Main_Window(QMainWindow):
         self.label_5.setText(_translate("MainWindow", "收货地址："))
         self.label_6.setText(_translate("MainWindow", "抢购时间："))
         self.buyTime.setDisplayFormat(_translate("MainWindow", "yyyy-MM-dd HH:mm:ss"))
-        self.refreshAddressButton.setText(_translate("MainWindow", "定金支付"))
+        self.refreshAddressButton.setText(_translate("MainWindow", "刷新地址"))
         self.BuyOnTime.setText(_translate("MainWindow", "定时抢购"))
         self.goodsOKButton.setText(_translate("MainWindow", "有货下单"))
         self.stopButton.setText(_translate("MainWindow", "停止"))
@@ -391,7 +391,7 @@ class Main_Window(QMainWindow):
         self.thread.terminate()  # 终止线程
 
     def Start0(self):
-        self.thread = New_Thread(code=0,sku=self.sku.text(),cnt=self.buyCnt.text(),areaId=self.areaId.text(),buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程，参数t设置为100
+        self.thread = New_Thread(code=0,sku=self.sku.text(),cnt=self.buyCnt.text(),areaId=self.areaId.text(),buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程
         # 将线程thread的信号finishSignal和UI主线程中的槽函数Change进行连接
         self.thread.finishSignal.connect(self.printf)
         self.thread.succesLogin.connect(self.succesLogin)
@@ -402,19 +402,7 @@ class Main_Window(QMainWindow):
     def Start1(self):
         # code=0 定时抢购
         # code=1 有货抢购
-        # code=2 定金支付
-        self.thread = New_Thread(code=1,sku=self.sku,cnt=self.buyCnt.text(),areaId=self.areaId,buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程，参数t设置为100
-        # 将线程thread的信号finishSignal和UI主线程中的槽函数Change进行连接
-        self.thread.finishSignal.connect(self.printf)
-        # 启动线程，执行线程类中run函数
-        self.thread.start()
-
-    def Start2(self):
-        print("进入定金支付模式")
-        # code=0 定时抢购
-        # code=1 有货抢购
-        # code=2 定金支付
-        self.thread = New_Thread(code=2,sku=self.sku.text(),cnt=self.buyCnt.text(),areaId=self.areaId,buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程，参数t设置为100
+        self.thread = New_Thread(code=1,sku=self.sku,cnt=self.buyCnt.text(),areaId=self.areaId,buyTime=self.buyTime.text(),payPassword=self.payPassword.text() )  # 实例化一个线程
         # 将线程thread的信号finishSignal和UI主线程中的槽函数Change进行连接
         self.thread.finishSignal.connect(self.printf)
         # 启动线程，执行线程类中run函数
@@ -451,3 +439,4 @@ class Main_Window(QMainWindow):
         self.username.setText("未登录")
         self.address.setText("")
         pass
+
