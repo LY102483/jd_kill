@@ -201,7 +201,7 @@ class Main_Window(QMainWindow):
 
     def retranslateUi(self, MainWindow):
         _translate = QtCore.QCoreApplication.translate
-        MainWindow.setWindowTitle(_translate("MainWindow", "京东抢购软件         Email：jdkill2022@outlook.com"))
+        MainWindow.setWindowTitle(_translate("MainWindow", "京东抢购软件极速版V1.2         Email：jdkill2022@outlook.com"))
         self.JdTime.setText(_translate("MainWindow", "获取失败"))
         self.loginButton.setText(_translate("MainWindow", "登录"))
         self.label_3.setText(_translate("MainWindow", "京东时间："))

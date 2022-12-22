@@ -20,7 +20,8 @@ from selenium.webdriver.support import wait
 from selenium.webdriver.support.wait import WebDriverWait
 
 import utils.depend
-# from jd_utils import register_util   #Mac开发临时关闭
+from jd_utils import register_util   #Mac开发临时关闭
+from jd_utils.register_util import register
 from utils.cookieUtil import checkCookie, jobName, saveCookie, readCookie, deleteCookie
 from selenium.webdriver.support import expected_conditions as EC
 
@@ -123,7 +124,7 @@ class New_Thread(QThread):
                         stockState = self.checkStock(sku, areaId)
                         if stockState == 1:
                             self.finishSignal.emit("检测到库存,开始执行自动下单！")
-                            buyState = self.bugMethod(chrome, url)
+                            buyState = self.bugMethod(self,self.sku,self.reqCookies,self.cnt)
                             if buyState == 200:
                                 self.finishSignal.emit("下单成功")
                                 break
@@ -164,7 +165,7 @@ class New_Thread(QThread):
                     elif payState == 2:
                         self.finishSignal.emit("支付失败")
         else:
-            self.finishSignal.emit("账户已过期，请联系开发人员重新开通")
+            self.finishSignal.emit("有新的软件版本，请进行更新")
 
     # 定时抢购
     def buyOnTime(self):
@@ -184,10 +185,11 @@ class New_Thread(QThread):
                 url = "https://wqs.jd.com/order/m.confirm.shtml?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + str(
                     buyCnt) + "," + sku + ",1,1,1&type=0&lg=0&supm=0"
                 while True:
-                    localTime = int(round(time.time() * 1000)) + 15
+                    localTime = int(round(time.time() * 1000)) + 200 #提前350ms发起请求
                     if localTime >= buyTime:
                         # self.finishSignal.emit("到达抢购时间，开始执行")
-                        buyState = self.bugMethod(chrome, url)
+                        print("到达抢购时间")
+                        buyState = self.bugMethod(self.sku,self.reqCookies,self.cnt)
                         if buyState == 200:
                             self.finishSignal.emit("下单成功")
                             payState = self.inputPw(chrome)
@@ -217,10 +219,10 @@ class New_Thread(QThread):
             else:
                 self.finishSignal.emit("cookie已过期，请重新登陆")
         else:
-            self.finishSignal.emit("账户已过期，请联系开发人员重新开通")
+            self.finishSignal.emit("有新的软件版本，请进行更新")
 
     # 下单具体方法
-    def bugMethod(self, chrome, url):
+    def bugMethod(self,sku,ck,cnt):
         # 测试样本：
         # sku:  100008153202
         # sku:  5059594
@@ -259,9 +261,11 @@ class New_Thread(QThread):
         '''
         通过request执行下单请求
         '''
-        sku=self.sku
-        ck=self.reqCookies
-        cnt=self.cnt
+
+        print("进入了定时下单的方法")
+        print(sku)
+        print(ck)
+        print(cnt)
         headers = {
             "User-Agent": "Mozilla/5.0 (Linux; U; Android 9; zh-cn; V1938CT Build/PPR1.180610.011) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/66.0.3359.126 MQQBrowser/10.1 Mobile Safari/537.36",
             "Connection": "keep-alive",
@@ -295,7 +299,8 @@ class New_Thread(QThread):
             "g_ty": "ls"
         }
         url = "https://wq.jd.com/deal/minfo/orderinfo"
-        resp = session.post(url, headers=headers, cookies=ck, data=data, verify=False)
+        resp = session.post(url, headers=headers, cookies=ck, data=data)
+
         try:
             resp = resp.text.replace("orderinfoCbA(", "")
             resp = resp.replace(")", "")
@@ -335,7 +340,7 @@ class New_Thread(QThread):
         headers[
             'Referer'] = "https://wq.jd.com/deal/confirmorder/main?sceneval=2&bid=&wdref=https://item.m.jd.com/product/" + sku + ".html?sceneval=2&jxsid=16426172376700795005&scene=jd&isCanEdit=1&EncryptInfo=&Token=&commlist=" + sku + ",," + cnt + "," + sku + ",1,0,0&locationid=&type=0&lg=0&supm=0"
         url = 'https://wq.jd.com/deal/msubmit/confirm'
-        resp = session.post(url, data=data, headers=headers, cookies=ck, verify=False)
+        resp = session.post(url, data=data, headers=headers, cookies=ck)
         try:
             resp = json.loads(resp.text.split("(")[1].split(")")[0])
             if len(resp["dealId"]) != 0:
@@ -356,16 +361,18 @@ class New_Thread(QThread):
         else:
             url="https://trade.m.jd.com/order/n_detail_jdm.shtml?deal_id="+self.dealId+"&sceneval=2&referer=http://wq.jd.com/wxapp//order/orderlist_jdm.shtml?stamp=1"
             chrome.get(url)
-
+            time.sleep(99999)
             try:
+                # payButton = WebDriverWait(chrome, 10).until(
+                #     EC.text_to_be_present_in_element((By.TAG_NAME, 'html'), "去支付")(chrome))
                 payButton = WebDriverWait(chrome, 10).until(
-                    EC.text_to_be_present_in_element((By.TAG_NAME, 'html'), "去支付")(chrome))
-                return 200
+                    EC.presence_of_element_located((By.XPATH, '/ html / body / div[6] / div / div[2] / taro - view - core / taro - view - core[2] / taro - view - core[10] / taro - view - core / taro - view - core / taro - view - core[1]')))
+                payButton.click()
             except:
                 pass
 
             try:
-                # 点击立即付款
+                # 点击确认付款
                 payBtn = WebDriverWait(chrome, 10).until(
                     EC.presence_of_element_located((By.CLASS_NAME, 'payBtn')))
                 payBtn.click()
@@ -460,15 +467,14 @@ class New_Thread(QThread):
         # 更换绑定
         self.exitLogin.emit("False")
 
-    # 授权是否过期
+    # 验证是否有新的软件版本
     def loginCheck(self):
-        # code=register_util.register.getCombinNumber()# Mac开发临时关闭
-        code = '1024'
         try:
+            code="v1.2"
             db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill',
                                  charset='utf8')
             cursor = db.cursor()
-            sql = " select * from account where MachineCode ='" + code + "' limit 1"
+            sql = " select * from account where MachineCode ='" +code  + "' limit 1"
             cursor.execute(sql)
             data = cursor.fetchone()
             db.close()

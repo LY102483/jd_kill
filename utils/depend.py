@@ -41,7 +41,7 @@ class ChromeBrowser:
             # 不加载图片, 提升速度
             chrome_options.add_argument('--blink-settings=imagesEnabled=false')
             # 不打开浏览器窗口
-            # chrome_options.add_argument("headless")
+            chrome_options.add_argument("headless")
             # 修改加载策略为eager：等待初始HTML文档完全加载和解析，并放弃css、图像和子框架的加载。
             # chrome_options.page_load_strategy='eager'
 

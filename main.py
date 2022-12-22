@@ -14,6 +14,7 @@ class PyQT_Register(QtWidgets.QWidget, Register_Window):
 
 
 if __name__ == '__main__':
+
     app = QtWidgets.QApplication(sys.argv)
     register_window = PyQT_Register()
     register_window.show()
