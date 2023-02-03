@@ -72,11 +72,13 @@ class Register_Window(object):
             cursor.execute(sql)
             data = cursor.fetchone()
             db.close()
-            if data!=None:
-                self.openMain()
-            else:
-                self.error.setText("注册失败，请邮件联系：jdkill2022@outlook.com")
-                self.error.show()
+            
+#             if data!=None:
+#                 
+#             else:
+#                 self.error.setText("注册失败，请邮件联系：jdkill2022@outlook.com")
+#                 self.error.show()
+            self.openMain()
 
         except Exception as e:
             self.error.setText("网络发生错误，请检查网络。")
