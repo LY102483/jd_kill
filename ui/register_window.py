@@ -66,7 +66,7 @@ class Register_Window(object):
     #数据库校验
     def login(self):
         try:
-            db = pymysql.connect(host='8.136.87.180', port=3306, user='jd_kill', passwd='jd_kill', db='jd_kill', charset='utf8')
+#             db = pymysql.connect(host='', port=3306, user='', passwd='', db='', charset='utf8')
             cursor = db.cursor()
             sql = " select * from account where MachineCode ='"+ self.MachineCode.text()+"' limit 1"
             cursor.execute(sql)
