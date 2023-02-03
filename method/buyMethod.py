@@ -5,8 +5,7 @@ import requests
 
 
 cookies = {
-    'pt_key': 'AAJjaVAoADBx5x5Ge_er3T5wOKLC-jsK5Y62v-PuB8MtWzEBJXBY1vMrCJdb5kXTsGIJ3J1Hw7w',
-    'pt_pin': 'ly1024_'
+    # 放Cookie
 }
 # sku
 sku = '10033799596506'
