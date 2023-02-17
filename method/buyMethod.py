@@ -16,7 +16,6 @@ cnt = '1'
 buyTime = '2022-11-12 00:00:00'
 buyTime = int(round(time.mktime(time.strptime(buyTime, "%Y-%m-%d %H:%M:%S")) * 1000000))
 print("购买时间"+str(buyTime))
-buyTime=1668182399800000
 
 
 while True:
